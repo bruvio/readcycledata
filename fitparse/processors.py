@@ -41,21 +41,30 @@ class FitFileDataProcessor(object):
         return self._scrubbed_method_names[method_name]
 
     def run_type_processor(self, field_data):
-        self._run_processor(self._scrub_method_name(
-            'process_type_%s' % field_data.type.name), field_data)
+        self._run_processor(
+            self._scrub_method_name(f'process_type_{field_data.type.name}'),
+            field_data,
+        )
 
     def run_field_processor(self, field_data):
-        self._run_processor(self._scrub_method_name(
-            'process_field_%s' % field_data.name), field_data)
+        self._run_processor(
+            self._scrub_method_name(f'process_field_{field_data.name}'), field_data
+        )
 
     def run_unit_processor(self, field_data):
         if field_data.units:
-            self._run_processor(self._scrub_method_name(
-                'process_units_%s' % field_data.units), field_data)
+            self._run_processor(
+                self._scrub_method_name(f'process_units_{field_data.units}'),
+                field_data,
+            )
 
     def run_message_processor(self, data_message):
-        self._run_processor(self._scrub_method_name(
-            'process_message_%s' % data_message.def_mesg.name), data_message)
+        self._run_processor(
+            self._scrub_method_name(
+                f'process_message_{data_message.def_mesg.name}'
+            ),
+            data_message,
+        )
 
     def _run_processor(self, processor_name, data):
         try:

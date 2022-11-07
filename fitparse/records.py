@@ -121,14 +121,12 @@ class DataMessage(RecordBase):
                 return field_data.as_dict() if as_dict else field_data
 
     def get_value(self, field_name):
-        # SIMPLIFY: get rid of this completely
-        field_data = self.get(field_name)
-        if field_data:
+        if field_data := self.get(field_name):
             return field_data.value
 
     def get_values(self):
         # SIMPLIFY: get rid of this completely
-        return dict((f.name if f.name else f.def_num, f.value) for f in self.fields)
+        return {f.name or f.def_num: f.value for f in self.fields}
 
     @property
     def name(self):
@@ -157,8 +155,10 @@ class DataMessage(RecordBase):
 
     def __repr__(self):
         return '<DataMessage: %s (#%d) -- local mesg: #%d, fields: [%s]>' % (
-            self.name, self.mesg_num, self.header.local_mesg_num,
-            ', '.join(["%s: %s" % (fd.name, fd.value) for fd in self.fields]),
+            self.name,
+            self.mesg_num,
+            self.header.local_mesg_num,
+            ', '.join([f"{fd.name}: {fd.value}" for fd in self.fields]),
         )
 
     def __str__(self):
@@ -183,16 +183,14 @@ class FieldData(RecordBase):
     # TODO: Some notion of flags
 
     def is_named(self, name):
-        if self.field:
-            if name in (self.field.name, self.field.def_num):
-                return True
-        if self.parent_field:
-            if name in (self.parent_field.name, self.parent_field.def_num):
-                return True
-        if self.field_def:
-            if name == self.field_def.def_num:
-                return True
-        return False
+        if self.field and name in (self.field.name, self.field.def_num):
+            return True
+        if self.parent_field and name in (
+            self.parent_field.name,
+            self.parent_field.def_num,
+        ):
+            return True
+        return bool(self.field_def and name == self.field_def.def_num)
 
     @property
     def def_num(self):
@@ -226,15 +224,21 @@ class FieldData(RecordBase):
         }
 
     def __repr__(self):
-        return '<FieldData: %s: %s%s, def num: %d, type: %s (%s), raw value: %s>' % (
-            self.name, self.value, ' [%s]' % self.units if self.units else '',
-            self.def_num, self.type.name, self.base_type.name, self.raw_value,
+        return (
+            '<FieldData: %s: %s%s, def num: %d, type: %s (%s), raw value: %s>'
+            % (
+                self.name,
+                self.value,
+                f' [{self.units}]' if self.units else '',
+                self.def_num,
+                self.type.name,
+                self.base_type.name,
+                self.raw_value,
+            )
         )
 
     def __str__(self):
-        return '%s: %s%s' % (
-            self.name, self.value, ' [%s]' % self.units if self.units else '',
-        )
+        return f"{self.name}: {self.value}{f' [{self.units}]' if self.units else ''}"
 
 
 class BaseType(RecordBase):
@@ -259,7 +263,7 @@ class FieldType(RecordBase):
     __slots__ = ('name', 'base_type', 'values')
 
     def __repr__(self):
-        return '<FieldType: %s (%s)>' % (self.name, self.base_type)
+        return f'<FieldType: {self.name} ({self.base_type})>'
 
 
 class MessageType(RecordBase):
@@ -357,7 +361,7 @@ class Crc(object):
             self.update(byte_arr)
 
     def __repr__(self):
-        return '<%s %s>' % (self.__class__.__name__, self.value or "-")
+        return f'<{self.__class__.__name__} {self.value or "-"}>'
 
     def __str__(self):
         return self.format(self.value)
@@ -457,7 +461,7 @@ def add_dev_field_description(message):
         native_field_num = native_field_num.raw_value
 
     if dev_data_index not in DEV_TYPES:
-        raise FitParseError("No such dev_data_index=%s found" % (dev_data_index))
+        raise FitParseError(f"No such dev_data_index={dev_data_index} found")
     fields = DEV_TYPES[int(dev_data_index)]['fields']
 
     # Note that nothing in the spec says overwriting an existing field is invalid
@@ -471,8 +475,14 @@ def add_dev_field_description(message):
 
 def get_dev_type(dev_data_index, field_def_num):
     if dev_data_index not in DEV_TYPES:
-        raise FitParseError("No such dev_data_index=%s found when looking up field %s" % (dev_data_index, field_def_num))
+        raise FitParseError(
+            f"No such dev_data_index={dev_data_index} found when looking up field {field_def_num}"
+        )
+
     elif field_def_num not in DEV_TYPES[dev_data_index]['fields']:
-        raise FitParseError("No such field %s for dev_data_index %s" % (field_def_num, dev_data_index))
+        raise FitParseError(
+            f"No such field {field_def_num} for dev_data_index {dev_data_index}"
+        )
+
 
     return DEV_TYPES[dev_data_index]['fields'][field_def_num]

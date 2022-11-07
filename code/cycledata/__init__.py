@@ -19,12 +19,7 @@ def convertrideGPX(input,output,fileid):
 
     tree = et.parse(input)
     root = tree.getroot()
-    m = re.match(r'^({.*})', root.tag)
-    if m:
-        ns = m.group(1)
-    else:
-        ns = ''
-
+    ns = m.group(1) if (m := re.match(r'^({.*})', root.tag)) else ''
     if root.tag != ns + 'gpx':
         print('Looking for root "gpx", but Unknown root found: ' + root.tag)
         return lines, error, errorcount, lasterror
@@ -135,19 +130,15 @@ def convertrideGPX(input,output,fileid):
 
 # Some of the Garmin TCX files puts whitespace at the start of the file. this function removes the whitespace
 def prepTCXfile(inputfolder, inputfile, outputfolder, outputfile):
-    file = open(inputfolder + '/' + inputfile, 'r')
-    fulltext = file.readlines()
-    file.close()
-
+    with open(inputfolder + '/' + inputfile, 'r') as file:
+        fulltext = file.readlines()
     if fulltext[0][0] == ' ':
 
         while fulltext[0][0] == ' ':
             fulltext[0] = fulltext[0][1:]
 
-        outfile = open(inputfolder + '/' + inputfile, 'w')
-        outfile.writelines(fulltext)
-
-        outfile.close()
+        with open(inputfolder + '/' + inputfile, 'w') as outfile:
+            outfile.writelines(fulltext)
 
     return
 
@@ -161,26 +152,22 @@ def convertrideTCX(input,output,fileid):
     lines = 0
     tree = et.parse(input)
     root = tree.getroot()
-    m = re.match(r'^({.*})', root.tag)
-    if m:
-        ns = m.group(1)
-    else:
-        ns = ''
+    ns = m.group(1) if (m := re.match(r'^({.*})', root.tag)) else ''
     if root.tag != ns + 'TrainingCenterDatabase':
         print('Unknown root found: ' + root.tag)
         return
     activities = root.find(ns + 'Activities')
     if not activities:
         activities = root.find(ns + 'Courses')
-        if not activities:
-            print('Unable to find Activities or Courses under root')
-            return
+    if not activities:
+        print('Unable to find Activities or Courses under root')
+        return
     activity = activities.find(ns + 'Activity')
     if not activity:
         activity = activities.find(ns + 'Course')
-        if not activity:
-            print('Unable to find Activity or Course under Activities/Courses')
-            return
+    if not activity:
+        print('Unable to find Activity or Course under Activities/Courses')
+        return
     actid = fileid
     columnsEstablished = False
     for lap in activity.iter(ns + 'Lap'):
@@ -193,7 +180,6 @@ def convertrideTCX(input,output,fileid):
             for trackpoint in track.iter(ns + 'Trackpoint'):
                 lines += 1
                 excludeline = False
-                rowid="{:0>7d}".format(lines)
                 lasterror = ''
                 try:
                     time = trackpoint.find(ns + 'Time').text.strip()
@@ -274,7 +260,8 @@ def convertrideTCX(input,output,fileid):
                                          'AltitudeMeters', 'HeartRate', 'Cadence', 'Watts', 'Speed')) + '\n')
                     columnsEstablished = True
 
-                if excludeline != True:
+                if not excludeline:
+                    rowid="{:0>7d}".format(lines)
                     fout.write(
                         ','.join((filetype,rowid, actid, time, latitude, longitude, distance, altitude, bpm, cadence, watts, speed)) + '\n')
 
@@ -303,7 +290,6 @@ def convertrideFIT(fitfile, output_file, fileid):
     messages = fitfile.messages
     data = []
     for m in messages:
-        skip = False
         if not hasattr(m, 'fields'):
             continue
         fields = m.fields
@@ -320,19 +306,15 @@ def convertrideFIT(fitfile, output_file, fileid):
                     mdata['RowId'] = linecount
                     mdata['ActivityId'] =  fileid
                     mdata['FileType'] = 'fit'
+                elif fieldname in ['Cadence', 'HeartRate']:
+                    try:
+                        fieldval = float(field.value)
+                    except:
+                        fieldval = np.nan
+                    mdata[fieldname] = fieldval
                 else:
-                    #First remove some horribleness with cadence, watts and heartrate, where it is sometimes set to a non-numeric
-                    if fieldname == 'Cadence' or fieldname == 'HeartRate':
-                        try:
-                            fieldval = float(field.value)
-                        except:
-                            fieldval = np.nan
-                        mdata[fieldname] = fieldval
-                    else:
-                        mdata[fieldname] = field.value
-        for rf in required_fields:
-            if rf not in mdata:
-                skip = True
+                    mdata[fieldname] = field.value
+        skip = any(rf not in mdata for rf in required_fields)
         if not skip:
             linecount+=1
             data.append(mdata)
@@ -352,8 +334,17 @@ def convertgeofilesbatch(inputpath, outputpath):
     countTcx = 0
     countFit = 0
     countGpx = 0
-    results = []
-    results.append(['Filename','Outputfile','Linecount','Errorfound','Errorcount','Errortext'])
+    results = [
+        [
+            'Filename',
+            'Outputfile',
+            'Linecount',
+            'Errorfound',
+            'Errorcount',
+            'Errortext',
+        ]
+    ]
+
     print('\n\n .............. Converting GPX/TCX/FIT files to a standardised CSV intermediate format \n\n')
     for file in files:
         inputfilename = file.name
@@ -371,7 +362,7 @@ def convertgeofilesbatch(inputpath, outputpath):
             countTcx += 1
             prepTCXfile(inputpath, file.name, outputpath, outputfilename)
             cvinput = inputpath + inputfilename
-            cvoutput = outputpath + outputfilename[0:-3] + 'csv'
+            cvoutput = outputpath + outputfilename[:-3] + 'csv'
             print('TCX : ',cvinput)
             lines, error, errorcount, lasterror = convertrideTCX(cvinput, cvoutput,fileid)
             results.append([file.name,outputfilename[1:-3] + 'csv', lines, error, errorcount, lasterror])
@@ -379,7 +370,7 @@ def convertgeofilesbatch(inputpath, outputpath):
             outputfilename = '/_gpx' + ''.join(file.name)
             countGpx += 1
             cvinput = inputpath + inputfilename
-            cvoutput = outputpath + outputfilename[0:-3] + 'csv'
+            cvoutput = outputpath + outputfilename[:-3] + 'csv'
             print('GPX : ',cvinput)
             lines, error, errorcount, lasterror = convertrideGPX(cvinput, cvoutput,fileid)
             results.append([file.name,outputfilename[1:-3] + 'csv', lines, error, errorcount, lasterror])
@@ -387,7 +378,7 @@ def convertgeofilesbatch(inputpath, outputpath):
         with open(outputpath+'/'+'___process_report.csv', 'w', newline='') as f:
             writer = csv.writer(f)
             for line in results:
-                writer.writerow(line[i] for i in range(0,len(line)))
+                writer.writerow(line[i] for i in range(len(line)))
         f.close()
 
 
@@ -472,7 +463,10 @@ def addcomputedcycledata(sourcedf,riderweight, bikeweight, crr, rho, cd, fa, exf
     timehstr = timeh.apply(lambda x: '{:02d}'.format(int(x)))
     timeminstr = timemin.apply(lambda x: '{:02d}'.format(int(x)))
     timestring = timehstr + ':' + timeminstr
-    diststring = sourcedf.CumDistXYZ.apply(lambda x: str(round(x / 1000, 1)) + 'km')
+    diststring = sourcedf.CumDistXYZ.apply(
+        lambda x: f'{str(round(x / 1000, 1))}km'
+    )
+
     stoplabel = sourcedf.StationaryDuration.apply(lambda x: '  {:2d}m'.format(int(x / 60)) + '{:02d}s'.format(int(x) - int(x / 60) * 60) + ' stop' if x > 1 else '')
     gpslabel = timestring + '  -  ' + diststring + stoplabel
     sourcedf['gpslabel']=gpslabel
@@ -619,8 +613,9 @@ def readcyclecsv(pathname,filelist,basedatafile):
 
 #This function returns a CSV file as a dataframe
 def getfinalcsvcycledata(filepath,filename):
-    rawdata = pd.read_csv(filepath+filename,dtype={'Cadence' : np.float, 'HeartRate' : np.float})
-    return rawdata
+    return pd.read_csv(
+        filepath + filename, dtype={'Cadence': np.float, 'HeartRate': np.float}
+    )
 
 # Determine runtype - returns Level, Climb or Descend
 def runtype(elevation):
@@ -628,7 +623,7 @@ def runtype(elevation):
         return 'Climb'
     elif elevation <= -0.02:
         return 'Descend'
-    elif elevation < 0.2 and elevation > -0.02:
+    elif elevation < 0.2:
         return 'Level'
 
     return 'Not Known'
@@ -715,6 +710,10 @@ def readbasedata(filepathandname):
         'targetwatts': np.float
     }
 
-    df = pd.read_excel(io=filepathandname, sheet_name = 'basedata', header = 0, dtype = dtypes, parse_dates = ['ridedate'])
-
-    return df
+    return pd.read_excel(
+        io=filepathandname,
+        sheet_name='basedata',
+        header=0,
+        dtype=dtypes,
+        parse_dates=['ridedate'],
+    )
