@@ -68,7 +68,7 @@ class FitFile(object):
         fmt_with_endian = endian + fmt
         size = struct.calcsize(fmt_with_endian)
         if size <= 0:
-            raise FitParseError("Invalid struct format: %s" % fmt_with_endian)
+            raise FitParseError(f"Invalid struct format: {fmt_with_endian}")
 
         if data is None:
             data = self._read(size)
@@ -84,8 +84,9 @@ class FitFile(object):
             return
         if crc_computed == crc_read or (allow_zero and crc_read == 0):
             return
-        raise FitCRCError('CRC Mismatch [computed: %s, read: %s]' % (
-            Crc.format(crc_computed), Crc.format(crc_read)))
+        raise FitCRCError(
+            f'CRC Mismatch [computed: {Crc.format(crc_computed)}, read: {Crc.format(crc_read)}]'
+        )
 
     ##########
     # Private Data Parsing Methods
@@ -184,7 +185,7 @@ class FitFile(object):
         mesg_type = MESSAGE_TYPES.get(global_mesg_num)
         field_defs = []
 
-        for n in range(num_fields):
+        for _ in range(num_fields):
             field_def_num, field_size, base_type_num = self._read_struct('3B', endian=endian)
             # Try to get field from message type (None if unknown)
             field = mesg_type.fields.get(field_def_num) if mesg_type else None
@@ -214,7 +215,7 @@ class FitFile(object):
         dev_field_defs = []
         if header.is_developer_data:
             num_dev_fields = self._read_struct('B', endian=endian)
-            for n in range(num_dev_fields):
+            for _ in range(num_dev_fields):
                 field_def_num, field_size, dev_data_index = self._read_struct('3B', endian=endian)
                 field = get_dev_type(dev_data_index, field_def_num)
                 dev_field_defs.append(DevFieldDefinition(
@@ -409,19 +410,13 @@ class FitFile(object):
             as_dict = False
 
         if name is not None:
-            if is_iterable(name):
-                names = set(name)
-            else:
-                names = set((name,))
-
+            names = set(name) if is_iterable(name) else {name}
         def should_yield(message):
             if with_definitions or message.type == 'data':
-                # name arg is None we return all
                 if name is None:
                     return True
-                else:
-                    if (message.name in names) or (message.mesg_num in names):
-                        return True
+                if (message.name in names) or (message.mesg_num in names):
+                    return True
             return False
 
         # Yield all parsed messages first

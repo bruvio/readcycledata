@@ -26,9 +26,7 @@ UNIT_NAME_TO_FUNC_REPLACEMENTS = (
 def scrub_method_name(method_name, convert_units=False):
     if convert_units:
         for replace_from, replace_to in UNIT_NAME_TO_FUNC_REPLACEMENTS:
-            method_name = method_name.replace(
-                replace_from, '%s' % replace_to,
-            )
+            method_name = method_name.replace(replace_from, f'{replace_to}')
     return METHOD_NAME_SCRUBBER.sub('_', method_name)
 
 

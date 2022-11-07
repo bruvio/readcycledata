@@ -18,9 +18,9 @@ from datetime import datetime as dt
 
 targetfolder = 'C:/Users/hanne/PycharmProjects/readcycledatafiles/Datafiles/'
 
-rawfolder = targetfolder+'Raw/'
-interfolder = targetfolder+'Intermediate/'
-finalfolder = targetfolder+'Final/'
+rawfolder = f'{targetfolder}Raw/'
+interfolder = f'{targetfolder}Intermediate/'
+finalfolder = f'{targetfolder}Final/'
 
 
 basedatafile = 'C:/Users/hanne/PycharmProjects/readcycledatafiles/Datafiles/BaseData/basedata.xlsx'
@@ -56,7 +56,7 @@ filelist = []
 
 print('\n\n................ Reading the intermediate folder .... REMEMBER to empty this folder from time to time')
 
-if targetfiles == 'files' :
+if targetfiles == 'files':
     filelist = [
     '_fitfile1.csv',
     '_gpxfile1.csv',
@@ -68,8 +68,8 @@ elif targetfiles == 'folder':
     filelist = []
     for file in files:
         filename = file.name
-        prefix = filename[0:4]
-        if prefix == '_gpx' or prefix == '_tcx' or prefix == '_fit':
+        prefix = filename[:4]
+        if prefix in ['_gpx', '_tcx', '_fit']:
             filelist.append(filename)
 
 ## Now run the function that will return a single DataFrame with gazzillions of extra calculated data
